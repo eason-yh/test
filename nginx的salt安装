@@ -1,0 +1,38 @@
+nginx_source:
+  file.recurse:
+    - name: /tmp/nginx/
+    - source: salt://nginx
+    - makedir: True
+    - include_empty: True
+
+extract_nginx:
+  cmd.run:
+    - cwd: /tmp/nginx
+    - names:
+      - tar xzf Nginx-accesskey-2.0.3.tar.gz
+      - tar xzf nginx-rtmp-module.tar.gz
+      - tar xzf nginx_upstream_check_module-master.tar.gz
+      - tar xzf nginx_mod_h264_streaming-2.2.7.tar.gz
+      - tar xzf nginx-1.8.0.tar.gz
+    - require:
+      - file: nginx_source
+
+nginx_pkg:
+  pkg.installed:
+    - pkgs:
+      - gd-devel
+      - gcc
+      - openssl-devel
+      - pcre-devel
+      - zlib-devel
+
+nginx_compile:
+  cmd.run:
+    - cwd: /tmp/nginx/nginx-1.8.0
+    - names:
+      - patch -p1 < ../nginx_upstream_check_module-master/check_1.7.5+.patch
+      - ./configure --user=www --group=www --prefix=/usr/local/nginx-1.8.0 --with-http_stub_status_module --with-http_ssl_module --with-http_gzip_static_module --with-http_mp4_module --with-http_flv_module --with-http_realip_module --with-http_image_filter_module --with-cc-opt=-I/usr/local/ffmpeg/include --with-ld-opt='-L/usr/local/ffmpeg/lib -Wl,-rpath=/usr/local/ffmpeg/lib' --with-pcre --add-module=../nginx-accesskey-2.0.3 --add-module=../nginx-rtmp-module --add-module=../nginx_upstream_check_module-master && make
+      - touch /tmp/nginx-install-ok
+    - require:
+      - pkg: nginx_pkg
+      - cmd: extract_nginx
