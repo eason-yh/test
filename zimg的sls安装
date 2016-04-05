@@ -1,0 +1,122 @@
+zimg-pkg:
+  pkg.installed:
+    - pkgs:
+      - openssl
+      - cmake
+      - nasm
+      - openssl-devel
+      - giflib-devel
+      - libpng-devel
+      - libwebp-devel
+      - ImageMagick-devel
+      - libmemcached-devel
+      - libjpeg-turbo-devel
+
+libevent-install:
+  file.managed:
+    - name: /usr/local/src/libevent-2.0.21-stable.tar.gz
+    - source: salt://zimg/libevent-2.0.21-stable.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - name: cd /usr/local/src/ && tar xf libevent-2.0.21-stable.tar.gz && cd /usr/local/src/libevent-2.0.21-stable && ./configure --prefix=/usr/local --with-jpeg8 && make && make install
+
+libjpeg-turbo-install:
+  file.managed:
+    - name: /usr/local/src/libjpeg-turbo-1.3.1.tar.gz
+    - source: salt://zimg/libjpeg-turbo-1.3.1.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf libjpeg-turbo-1.3.1.tar.gz && cd /usr/local/src/libjpeg-turbo-1.3.1 && ./configure --prefix=/usr/local --with-jpeg8 && make && make install
+
+liwebp-install:
+  file.managed:
+    - name: /usr/local/src/libwebp-0.4.1.tar.gz
+    - source: salt://zimg/libwebp-0.4.1.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf libwebp-0.4.1.tar.gz && cd /usr/local/src/libwebp-0.4.1 && ./configure && make && make install
+
+jpegsrc-v9-install:
+  file.managed:
+    - name: /usr/local/src/jpegsrc.v9.tar.gz
+    - source: salt://zimg/jpegsrc.v9.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf jpegsrc.v9.tar.gz && cd /usr/local/src/jpeg-9 && ./configure && make libdir=/usr/lib64 && make libdir=/usr/lib64 install
+
+imagemagick-insatll:
+  file.managed:
+    - name: /usr/local/src/ImageMagick.tar.gz
+    - source: salt://zimg/ImageMagick.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf ImageMagick.tar.gz && cd /usr/local/src/ImageMagick-6.9.2-1 && ./configure --prefix=/usr/local && make && make install
+
+libmemcached-install:
+  file.managed:
+    - name: /usr/local/src/libmemcached-1.0.18.tar.gz
+    - source: salt://zimg/libmemcached-1.0.18.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf libmemcached-1.0.18.tar.gz && cd /usr/local/src/libmemcached-1.0.18 && ./configure --prefix=/usr/local && make && make install
+
+memcached-install:
+  file.managed:
+    - name: /usr/local/src/memcached-1.2.8.tar.gz
+    - source: salt://zimg/memcached-1.2.8.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+  cmd.run:
+    - names:
+      - cd /usr/local/src/ && tar xf memcached-1.2.8.tar.gz && cd /usr/local/src/memcached-1.2.8 && ./configure --prefix=/usr/local/memcached && make && make install
+      - ln -s /usr/local/lib/libevent-2.0.so.5 /usr/lib64/
+      - /usr/local/memcached/bin/memcached -d -m 2048 -u root -c 1024 -p 11211 -P /tmp/memcached.pid
+      - echo " /usr/local/memcached/bin/memcached -d -m 2048 -u root -c 1024 -p 11211 -P /tmp/memcached.pid" >>/etc/rc.local
+
+zimg-install:
+  cmd.run:
+    - names:
+      - cd /usr/local && git clone https://github.com/buaazp/zimg -b master --depth=1 && cd /usr/local/zimg && make
+    - require:
+      - pkg: zimg-pkg
+      - cmd: libevent-install
+      - cmd: libjpeg-turbo-install
+      - cmd: liwebp-install
+      - cmd: jpegsrc-v9-install
+      - cmd: imagemagick-insatll
+      - cmd: libmemcached-install
+      - cmd: memcached-install
+zimg-conf:
+  file.managed:
+    - name: /usr/local/zimg/bin/conf/zimg.lua
+    - source: salt://zimg/zimg.lua
+    - user: root
+    - group: root
+    - mode: 644
+    - require:
+      - cmd: zimg-install
+  cmd.run:
+    - name: mkdir /opt/logs/zimg -p && chown -R go.go /opt/logs/zimg
+    - require:
+      - file: zimg-conf
+zimg-start:
+  cmd.run:
+    - name: /usr/local/zimg/bin/zimg -f /usr/local/zimg/bin/conf/zimg.lua
