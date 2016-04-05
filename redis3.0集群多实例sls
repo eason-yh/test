@@ -1,0 +1,100 @@
+ruby-install:
+  pkg.installed:
+    - names:
+      - ruby
+      - rubygems
+      - zlib
+      - zlib-devel
+
+gem-install:
+  cmd.run:
+    - name: gem install redis
+    - require:
+      - pkg: ruby-install
+
+redis-tar:
+  file.managed:
+    - name: /usr/local/src/redis-3.0.7.tar.gz
+    - source: salt://redis/redis-3.0.7.tar.gz
+    - user: root
+    - group: root
+    - mode: 644
+    - require:
+      - pkg: ruby-install
+      - cmd: gem-install
+
+redis-install:
+  cmd.run:
+    - names:
+      - mkdir /etc/redis -p && chown -R go.go /opt/logs
+      - mkdir /opt/logs/redis_6379 -p && mkdir /opt/logs/redis_7379 -p && mkdir /opt/logs/redis_8379 -p
+      - mkdir /opt/data/redis_6379 -p && mkdir /opt/data/redis_7379 -p && mkdir /opt/data/redis_8379 -p
+      - cd /usr/local/src/ && tar xf redis-3.0.7.tar.gz && mv redis-3.0.7 /usr/local/redis && cd /usr/local/redis/ && make && make install
+    - require:
+      - file: redis-tar
+
+redis-6379conf:
+  file.managed:
+    - name: /etc/redis/6379.conf
+    - source: salt://redis/redis.conf
+    - user: root
+    - group: root
+    - mode: 644
+    - template: jinja
+    - defaults:
+      ip: {{ grains['fqdn_ip4'][0] }}
+      port: 6379
+    - require:
+      - file: redis-tar
+      - cmd: redis-install
+
+redis-7379conf:
+  file.managed:
+    - name: /etc/redis/7379.conf
+    - source: salt://redis/redis.conf
+    - user: root
+    - group: root
+    - mode: 644
+    - template: jinja
+    - defaults:
+      ip: {{ grains['fqdn_ip4'][0] }}
+      port: 7379
+    - require:
+      - file: redis-tar
+      - cmd: redis-install
+      - file: redis-6379conf
+
+redis-8379conf:
+  file.managed:
+    - name: /etc/redis/8379.conf
+    - source: salt://redis/redis.conf
+    - user: root
+    - group: root
+    - mode: 644
+    - template: jinja
+    - defaults:
+      ip: {{ grains['fqdn_ip4'][0] }}
+      port: 8379
+    - require:
+      - file: redis-tar
+      - cmd: redis-install
+      - file: redis-6379conf
+      - file: redis-7379conf
+
+profile-path:
+  cmd.run:
+    - name: echo "export PATH=$PATH:/usr/local/redis/src" >> /etc/profile && source /etc/profile
+    - require:
+      - file: redis-tar
+      - cmd: redis-install
+      - file: redis-6379conf
+      - file: redis-7379conf
+      - file: redis-8379conf
+redis-start:
+  cmd.run:
+    - names:
+      - /usr/bin/nohup /usr/local/bin/redis-server /etc/redis/6379.conf &
+      - /usr/bin/nohup /usr/local/bin/redis-server /etc/redis/7379.conf &
+      - /usr/bin/nohup /usr/local/bin/redis-server /etc/redis/8379.conf &
+    - require:
+      - cmd: profile-path
