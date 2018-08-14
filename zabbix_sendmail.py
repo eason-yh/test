@@ -11,8 +11,8 @@ def send_mail(to_email,subject,message):
 
     subject = 'python email test'
     smtpserver = 'smtp.163.com'
-    username = '15028213988'
-    password = 'yinhe19890916'
+    username = '********'
+    password = '********'
 
     msg = MIMEText(message, 'plain', 'utf-8')
     msg['Subject'] = subject
